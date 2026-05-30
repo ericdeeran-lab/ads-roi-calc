@@ -512,21 +512,21 @@
       <section class="card">
         <div class="card-title">Inputs</div>
 
-        <div class="input-group" data-input="adSpend" data-min="0" data-max="100000" data-step="100">
+        <div class="input-group" data-input="adSpend" data-min="0" data-max="100000" data-step="100" data-money="true">
           <div class="input-label-row">
             <span class="input-label">Ad Spend</span>
-            <span class="input-label-hint">Monthly budget</span>
+            <span class="input-label-hint">Total amount spent</span>
           </div>
           <div class="input-row">
             <div class="slider-wrap"><input type="range" class="slider" /></div>
             <div class="input-wrap">
               <span class="input-prefix">$</span>
-              <input type="number" class="num-input has-prefix" />
+              <input type="text" inputmode="decimal" autocomplete="off" class="num-input has-prefix" />
             </div>
           </div>
         </div>
 
-        <div class="input-group" data-input="cpl" data-min="1" data-max="500" data-step="1">
+        <div class="input-group" data-input="cpl" data-min="1" data-max="500" data-step="1" data-money="true">
           <div class="input-label-row">
             <span class="input-label">Cost Per Lead</span>
             <span class="input-label-hint">CPL</span>
@@ -535,12 +535,12 @@
             <div class="slider-wrap"><input type="range" class="slider" /></div>
             <div class="input-wrap">
               <span class="input-prefix">$</span>
-              <input type="number" class="num-input has-prefix" />
+              <input type="text" inputmode="decimal" autocomplete="off" class="num-input has-prefix" />
             </div>
           </div>
         </div>
 
-        <div class="input-group" data-input="cpc" data-min="1" data-max="3000" data-step="10">
+        <div class="input-group" data-input="cpc" data-min="1" data-max="3000" data-step="10" data-money="true">
           <div class="input-label-row">
             <span class="input-label">Cost Per Call</span>
             <span class="input-label-hint">Booked call cost</span>
@@ -549,7 +549,7 @@
             <div class="slider-wrap"><input type="range" class="slider" /></div>
             <div class="input-wrap">
               <span class="input-prefix">$</span>
-              <input type="number" class="num-input has-prefix" />
+              <input type="text" inputmode="decimal" autocomplete="off" class="num-input has-prefix" />
             </div>
           </div>
         </div>
@@ -582,7 +582,7 @@
           </div>
         </div>
 
-        <div class="input-group" data-input="cashPerClose" data-min="0" data-max="50000" data-step="100">
+        <div class="input-group" data-input="cashPerClose" data-min="0" data-max="50000" data-step="100" data-money="true">
           <div class="input-label-row">
             <span class="input-label">Cash Collected / Close</span>
             <span class="input-label-hint">Upfront cash</span>
@@ -591,12 +591,12 @@
             <div class="slider-wrap"><input type="range" class="slider" /></div>
             <div class="input-wrap">
               <span class="input-prefix">$</span>
-              <input type="number" class="num-input has-prefix" />
+              <input type="text" inputmode="decimal" autocomplete="off" class="num-input has-prefix" />
             </div>
           </div>
         </div>
 
-        <div class="input-group" data-input="contractPerClose" data-min="0" data-max="100000" data-step="500">
+        <div class="input-group" data-input="contractPerClose" data-min="0" data-max="100000" data-step="500" data-money="true">
           <div class="input-label-row">
             <span class="input-label">Contract Value / Close</span>
             <span class="input-label-hint">Total contract</span>
@@ -605,7 +605,7 @@
             <div class="slider-wrap"><input type="range" class="slider" /></div>
             <div class="input-wrap">
               <span class="input-prefix">$</span>
-              <input type="number" class="num-input has-prefix" />
+              <input type="text" inputmode="decimal" autocomplete="off" class="num-input has-prefix" />
             </div>
           </div>
         </div>
@@ -767,6 +767,24 @@
       return n.toFixed(2) + 'x';
     };
 
+    // --- Money input helpers ---
+    // Format a raw string (or number) for display: "1234" -> "1,234", "1234.5" -> "1,234.5", "1234." -> "1,234."
+    function formatMoneyLive(raw) {
+      let cleaned = String(raw).replace(/[^\d.]/g, '');
+      const parts = cleaned.split('.');
+      let intPart = parts[0] || '';
+      const hasDot = parts.length > 1;
+      const decPart = hasDot ? parts.slice(1).join('').slice(0, 2) : '';
+      intPart = intPart.replace(/^0+(?=\d)/, '');
+      if (intPart === '') intPart = '0';
+      const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return formattedInt + (hasDot ? '.' + decPart : '');
+    }
+    function parseMoneyValue(str) {
+      const n = parseFloat(String(str).replace(/[^\d.]/g, ''));
+      return isNaN(n) ? 0 : n;
+    }
+
     // Wire up inputs
     const inputGroups = document.querySelectorAll('.input-group');
     inputGroups.forEach(group => {
@@ -774,6 +792,7 @@
       const min = parseFloat(group.dataset.min);
       const max = parseFloat(group.dataset.max);
       const step = parseFloat(group.dataset.step);
+      const isMoney = group.dataset.money === 'true';
 
       const slider = group.querySelector('.slider');
       const numInput = group.querySelector('.num-input');
@@ -781,40 +800,69 @@
       slider.min = min;
       slider.max = max;
       slider.step = step;
-      numInput.min = min;
-      numInput.step = step;
+      if (!isMoney) {
+        numInput.min = min;
+        numInput.step = step;
+      }
+
+      const formatForDisplay = (v) => isMoney ? formatMoneyLive(String(v)) : v;
 
       // initial sync
       const syncFromState = () => {
         const v = state[key];
         // clamp slider but allow input to exceed max
         slider.value = Math.min(Math.max(v, min), max);
-        numInput.value = v;
+        numInput.value = formatForDisplay(v);
         const pct = ((slider.value - min) / (max - min)) * 100;
         slider.style.setProperty('--pct', pct + '%');
       };
 
       slider.addEventListener('input', () => {
         state[key] = parseFloat(slider.value);
-        numInput.value = state[key];
+        numInput.value = formatForDisplay(state[key]);
         const pct = ((slider.value - min) / (max - min)) * 100;
         slider.style.setProperty('--pct', pct + '%');
         render();
       });
 
       numInput.addEventListener('input', () => {
-        let v = parseFloat(numInput.value);
-        if (isNaN(v)) v = 0;
-        if (v < 0) v = 0;
-        state[key] = v;
-        slider.value = Math.min(Math.max(v, min), max);
+        if (isMoney) {
+          // Live re-format with comma separators while preserving caret position by digit-count
+          const oldVal = numInput.value;
+          const caret = numInput.selectionStart || 0;
+          let digitsBeforeCaret = 0;
+          for (let i = 0; i < caret; i++) {
+            const c = oldVal.charCodeAt(i);
+            if (c >= 48 && c <= 57) digitsBeforeCaret++;
+          }
+          const formatted = formatMoneyLive(oldVal);
+          state[key] = parseMoneyValue(formatted);
+          numInput.value = formatted;
+          // Restore caret to the position after the same number of digits
+          let newPos = 0, seen = 0;
+          while (newPos < formatted.length && seen < digitsBeforeCaret) {
+            const c = formatted.charCodeAt(newPos);
+            if (c >= 48 && c <= 57) seen++;
+            newPos++;
+          }
+          try { numInput.setSelectionRange(newPos, newPos); } catch (e) {}
+        } else {
+          let v = parseFloat(numInput.value);
+          if (isNaN(v)) v = 0;
+          if (v < 0) v = 0;
+          state[key] = v;
+        }
+        slider.value = Math.min(Math.max(state[key], min), max);
         const pct = ((slider.value - min) / (max - min)) * 100;
         slider.style.setProperty('--pct', pct + '%');
         render();
       });
 
       numInput.addEventListener('blur', () => {
-        if (numInput.value === '' || isNaN(parseFloat(numInput.value))) {
+        if (isMoney) {
+          // Re-format from state so any trailing dot or stray chars get cleaned
+          numInput.value = formatMoneyLive(String(state[key] || 0));
+        } else if (numInput.value === '' || isNaN(parseFloat(numInput.value))) {
           numInput.value = 0;
           state[key] = 0;
           render();
