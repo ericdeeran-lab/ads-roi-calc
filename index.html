@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ads ROI Calculator</title>
+  <meta name="description" content="Calculate ROAS, cash collected, and revenue per lead from your ad spend in real time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0F0F0F;
+      --panel: #16161C;
+      --panel-2: #1C1C24;
+      --border: rgba(255,255,255,0.06);
+      --border-strong: rgba(255,255,255,0.12);
+      --text: #F5F5F7;
+      --muted: rgba(245,245,247,0.55);
+      --dim: rgba(245,245,247,0.35);
+      --accent: #6B46C1;
+      --accent-2: #9F7AEA;
+      --accent-glow: rgba(107,70,193,0.35);
+      --green: #34D399;
+      --red: #F87171;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -20%;
+      left: -10%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+      filter: blur(80px);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -20%;
+      right: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(circle, rgba(159,122,234,0.18) 0%, transparent 60%);
+      filter: blur(100px);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+      position: relative;
+      z-index: 1;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      display: grid;
+      place-items: center;
+      box-shadow: 0 8px 24px var(--accent-glow);
+    }
+    .brand-mark svg { width: 20px; height: 20px; }
+    .brand-title { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand-sub { font-size: 12px; color: var(--muted); }
+
+    .share-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 18px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font);
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .share-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+    .share-btn:active { transform: translateY(0); }
+    .share-btn svg { width: 16px; height: 16px; }
+    .share-btn.copied { background: var(--green); box-shadow: 0 4px 16px rgba(52,211,153,0.3); }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+    h1 .accent {
+      background: linear-gradient(135deg, var(--accent-2) 0%, #C4A1FF 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 32px; max-width: 580px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+      gap: 24px;
+    }
+    @media (max-width: 960px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 20px;
+    }
+
+    /* Inputs */
+    .input-group {
+      margin-bottom: 18px;
+    }
+    .input-group:last-child { margin-bottom: 0; }
+
+    .input-label-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .input-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .input-label-hint {
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .input-wrap {
+      position: relative;
+      flex: 0 0 130px;
+    }
+    .input-prefix, .input-suffix {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--dim);
+      pointer-events: none;
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+    .input-prefix { left: 12px; }
+    .input-suffix { right: 12px; }
+
+    .num-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: right;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      -moz-appearance: textfield;
+    }
+    .num-input::-webkit-outer-spin-button,
+    .num-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .num-input.has-prefix { padding-left: 22px; text-align: right; }
+    .num-input.has-suffix { padding-right: 24px; }
+    .num-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: #1F1F28;
+    }
+
+    /* Slider */
+    .slider-wrap {
+      flex: 1;
+      position: relative;
+      height: 32px;
+      display: flex;
+      align-items: center;
+    }
+    .slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--panel-2);
+      border-radius: 999px;
+      outline: none;
+      cursor: pointer;
+    }
+    .slider::-webkit-slider-runnable-track {
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(to right,
+        var(--accent) 0%,
+        var(--accent) var(--pct, 0%),
+        rgba(255,255,255,0.08) var(--pct, 0%),
+        rgba(255,255,255,0.08) 100%);
+    }
+    .slider::-moz-range-track {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+    }
+    .slider::-moz-range-progress {
+      height: 4px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid var(--accent);
+      cursor: grab;
+      margin-top: -6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      transition: transform 0.15s ease;
+    }
+    .slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    .slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.05); }
+    .slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid var(--accent);
+      cursor: grab;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    /* Hero metrics */
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 560px) {
+      .hero-metrics { grid-template-columns: 1fr; }
+    }
+
+    .hero-card {
+      position: relative;
+      padding: 22px;
+      background: linear-gradient(135deg, rgba(107,70,193,0.15) 0%, rgba(107,70,193,0.04) 100%);
+      border: 1px solid rgba(107,70,193,0.35);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -30%;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      filter: blur(20px);
+    }
+    .hero-card-label {
+      position: relative;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+      margin-bottom: 6px;
+    }
+    .hero-card-value {
+      position: relative;
+      font-family: var(--mono);
+      font-size: clamp(28px, 5vw, 38px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: white;
+      line-height: 1;
+    }
+    .hero-card-sub {
+      position: relative;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* Result rows */
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    @media (max-width: 480px) {
+      .result-grid { grid-template-columns: 1fr; }
+    }
+    .result-cell {
+      background: var(--panel);
+      padding: 16px 18px;
+    }
+    .result-cell-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
+    }
+    .result-cell-value {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    /* Funnel */
+    .funnel {
+      margin-top: 4px;
+    }
+    .funnel-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .funnel-row:last-child { border-bottom: none; }
+    .funnel-info {
+      width: 140px;
+      flex-shrink: 0;
+    }
+    .funnel-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .funnel-rate {
+      font-size: 11px;
+      color: var(--dim);
+      font-family: var(--mono);
+      margin-top: 2px;
+    }
+    .funnel-bar-wrap {
+      flex: 1;
+      height: 32px;
+      background: var(--panel-2);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    .funnel-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+      border-radius: 8px;
+      transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+      box-shadow: 0 0 20px rgba(107,70,193,0.4);
+      min-width: 2px;
+    }
+    .funnel-value {
+      width: 90px;
+      flex-shrink: 0;
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    @media (max-width: 560px) {
+      .funnel-info { width: 100px; }
+      .funnel-value { width: 70px; font-size: 14px; }
+      .funnel-label { font-size: 12px; }
+    }
+
+    .section-spacer { height: 24px; }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 12px;
+      color: var(--dim);
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--accent-2); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--panel);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 100;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"/>
+            <path d="M7 14l4-4 4 4 5-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Ads ROI Calculator</div>
+          <div class="brand-sub">Real-time ROAS & funnel math</div>
+        </div>
+      </div>
+      <button class="share-btn" id="shareBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+        <span id="shareBtnText">Share Results</span>
+      </button>
+    </header>
+
+    <div>
+      <h1>Know your <span class="accent">ROAS</span> before you scale.</h1>
+      <p class="subtitle">Plug in your numbers, watch your funnel and return on ad spend update live. Share the exact scenario with one click.</p>
+    </div>
+
+    <div class="grid">
+      <!-- INPUTS -->
+      <section class="card">
+        <div class="card-title">Inputs</div>
+
+        <div class="input-group" data-input="adSpend" data-min="0" data-max="100000" data-step="100">
+          <div class="input-label-row">
+            <span class="input-label">Ad Spend</span>
+            <span class="input-label-hint">Monthly budget</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input type="number" class="num-input has-prefix" />
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" data-input="cpl" data-min="1" data-max="500" data-step="1">
+          <div class="input-label-row">
+            <span class="input-label">Cost Per Lead</span>
+            <span class="input-label-hint">CPL</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input type="number" class="num-input has-prefix" />
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" data-input="cpc" data-min="1" data-max="3000" data-step="10">
+          <div class="input-label-row">
+            <span class="input-label">Cost Per Call</span>
+            <span class="input-label-hint">Booked call cost</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input type="number" class="num-input has-prefix" />
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" data-input="showRate" data-min="0" data-max="100" data-step="1">
+          <div class="input-label-row">
+            <span class="input-label">Show Rate</span>
+            <span class="input-label-hint">% of booked calls that show</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <input type="number" class="num-input has-suffix" />
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" data-input="closeRate" data-min="0" data-max="100" data-step="1">
+          <div class="input-label-row">
+            <span class="input-label">Close Rate</span>
+            <span class="input-label-hint">% of shows that close</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <input type="number" class="num-input has-suffix" />
+              <span class="input-suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" data-input="cashPerClose" data-min="0" data-max="50000" data-step="100">
+          <div class="input-label-row">
+            <span class="input-label">Cash Collected / Close</span>
+            <span class="input-label-hint">Upfront cash</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input type="number" class="num-input has-prefix" />
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group" data-input="contractPerClose" data-min="0" data-max="100000" data-step="500">
+          <div class="input-label-row">
+            <span class="input-label">Contract Value / Close</span>
+            <span class="input-label-hint">Total contract</span>
+          </div>
+          <div class="input-row">
+            <div class="slider-wrap"><input type="range" class="slider" /></div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input type="number" class="num-input has-prefix" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RESULTS -->
+      <section>
+        <div class="hero-metrics">
+          <div class="hero-card">
+            <div class="hero-card-label">ROAS — Cash</div>
+            <div class="hero-card-value" id="roasCash">0.00x</div>
+            <div class="hero-card-sub">Cash collected per $1 of ad spend</div>
+          </div>
+          <div class="hero-card">
+            <div class="hero-card-label">Cash / Booked Call</div>
+            <div class="hero-card-value" id="cashPerCall">$0</div>
+            <div class="hero-card-sub">Avg. cash earned per booked call</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-title">Revenue & Returns</div>
+          <div class="result-grid">
+            <div class="result-cell">
+              <div class="result-cell-label">Total Cash Collected</div>
+              <div class="result-cell-value" id="totalCash">$0</div>
+            </div>
+            <div class="result-cell">
+              <div class="result-cell-label">Total Contract Revenue</div>
+              <div class="result-cell-value" id="totalContract">$0</div>
+            </div>
+            <div class="result-cell">
+              <div class="result-cell-label">ROAS — Contract</div>
+              <div class="result-cell-value" id="roasContract">0.00x</div>
+            </div>
+            <div class="result-cell">
+              <div class="result-cell-label">Revenue Per Lead</div>
+              <div class="result-cell-value" id="revPerLead">$0</div>
+            </div>
+            <div class="result-cell">
+              <div class="result-cell-label">Lead → Booking Rate</div>
+              <div class="result-cell-value" id="leadBookRate">0%</div>
+            </div>
+            <div class="result-cell">
+              <div class="result-cell-label">Cost Per Close</div>
+              <div class="result-cell-value" id="costPerClose">$0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Funnel</div>
+          <div class="funnel">
+            <div class="funnel-row">
+              <div class="funnel-info">
+                <div class="funnel-label">Leads</div>
+                <div class="funnel-rate">100%</div>
+              </div>
+              <div class="funnel-bar-wrap"><div class="funnel-bar" id="bar-leads" style="width: 100%;"></div></div>
+              <div class="funnel-value" id="val-leads">0</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-info">
+                <div class="funnel-label">Calls Booked</div>
+                <div class="funnel-rate" id="rate-booked">—</div>
+              </div>
+              <div class="funnel-bar-wrap"><div class="funnel-bar" id="bar-booked" style="width: 0%;"></div></div>
+              <div class="funnel-value" id="val-booked">0</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-info">
+                <div class="funnel-label">Shows</div>
+                <div class="funnel-rate" id="rate-shown">—</div>
+              </div>
+              <div class="funnel-bar-wrap"><div class="funnel-bar" id="bar-shown" style="width: 0%;"></div></div>
+              <div class="funnel-value" id="val-shown">0</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-info">
+                <div class="funnel-label">Closes</div>
+                <div class="funnel-rate" id="rate-closes">—</div>
+              </div>
+              <div class="funnel-bar-wrap"><div class="funnel-bar" id="bar-closes" style="width: 0%;"></div></div>
+              <div class="funnel-value" id="val-closes">0</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <p>Built for operators who scale on numbers, not vibes.</p>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast">Link copied to clipboard</div>
+
+  <script>
+    const DEFAULTS = {
+      adSpend: 10000,
+      cpl: 40,
+      cpc: 600,
+      showRate: 75,
+      closeRate: 22,
+      cashPerClose: 2000,
+      contractPerClose: 8500,
+    };
+
+    const SHORT = {
+      adSpend: 'as', cpl: 'cpl', cpc: 'cpc',
+      showRate: 'sr', closeRate: 'cr',
+      cashPerClose: 'ccp', contractPerClose: 'cvp',
+    };
+    const SHORT_INV = Object.fromEntries(Object.entries(SHORT).map(([k,v]) => [v,k]));
+
+    const state = { ...DEFAULTS };
+
+    // Read URL params
+    function loadFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      for (const [shortKey, fullKey] of Object.entries(SHORT_INV)) {
+        if (params.has(shortKey)) {
+          const v = parseFloat(params.get(shortKey));
+          if (!isNaN(v) && v >= 0) state[fullKey] = v;
+        }
+      }
+    }
+
+    function buildShareURL() {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(state)) {
+        params.set(SHORT[k], v);
+      }
+      const url = new URL(window.location.href);
+      url.search = params.toString();
+      return url.toString();
+    }
+
+    // Formatters
+    const fmtMoney = (n) => {
+      if (!isFinite(n)) return '$0';
+      const rounded = Math.round(n);
+      return '$' + rounded.toLocaleString('en-US');
+    };
+    const fmtMoneyDec = (n) => {
+      if (!isFinite(n)) return '$0.00';
+      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+    const fmtNum = (n) => {
+      if (!isFinite(n)) return '0';
+      return Math.round(n).toLocaleString('en-US');
+    };
+    const fmtPct = (n) => {
+      if (!isFinite(n)) return '0%';
+      return n.toFixed(1) + '%';
+    };
+    const fmtROAS = (n) => {
+      if (!isFinite(n) || n === 0) return '0.00x';
+      return n.toFixed(2) + 'x';
+    };
+
+    // Wire up inputs
+    const inputGroups = document.querySelectorAll('.input-group');
+    inputGroups.forEach(group => {
+      const key = group.dataset.input;
+      const min = parseFloat(group.dataset.min);
+      const max = parseFloat(group.dataset.max);
+      const step = parseFloat(group.dataset.step);
+
+      const slider = group.querySelector('.slider');
+      const numInput = group.querySelector('.num-input');
+
+      slider.min = min;
+      slider.max = max;
+      slider.step = step;
+      numInput.min = min;
+      numInput.step = step;
+
+      // initial sync
+      const syncFromState = () => {
+        const v = state[key];
+        // clamp slider but allow input to exceed max
+        slider.value = Math.min(Math.max(v, min), max);
+        numInput.value = v;
+        const pct = ((slider.value - min) / (max - min)) * 100;
+        slider.style.setProperty('--pct', pct + '%');
+      };
+
+      slider.addEventListener('input', () => {
+        state[key] = parseFloat(slider.value);
+        numInput.value = state[key];
+        const pct = ((slider.value - min) / (max - min)) * 100;
+        slider.style.setProperty('--pct', pct + '%');
+        render();
+      });
+
+      numInput.addEventListener('input', () => {
+        let v = parseFloat(numInput.value);
+        if (isNaN(v)) v = 0;
+        if (v < 0) v = 0;
+        state[key] = v;
+        slider.value = Math.min(Math.max(v, min), max);
+        const pct = ((slider.value - min) / (max - min)) * 100;
+        slider.style.setProperty('--pct', pct + '%');
+        render();
+      });
+
+      numInput.addEventListener('blur', () => {
+        if (numInput.value === '' || isNaN(parseFloat(numInput.value))) {
+          numInput.value = 0;
+          state[key] = 0;
+          render();
+        }
+      });
+
+      group._sync = syncFromState;
+    });
+
+    function calculate() {
+      const { adSpend, cpl, cpc, showRate, closeRate, cashPerClose, contractPerClose } = state;
+      const leads = cpl > 0 ? adSpend / cpl : 0;
+      const booked = cpc > 0 ? adSpend / cpc : 0;
+      const leadBookPct = leads > 0 ? (booked / leads) * 100 : 0;
+      const shown = booked * (showRate / 100);
+      const closes = shown * (closeRate / 100);
+      const totalCash = closes * cashPerClose;
+      const totalContract = closes * contractPerClose;
+      const roasCash = adSpend > 0 ? totalCash / adSpend : 0;
+      const roasContract = adSpend > 0 ? totalContract / adSpend : 0;
+      const cashPerCall = booked > 0 ? totalCash / booked : 0;
+      const revPerLead = leads > 0 ? totalCash / leads : 0;
+      const costPerClose = closes > 0 ? adSpend / closes : 0;
+
+      return {
+        leads, booked, leadBookPct, shown, closes,
+        totalCash, totalContract, roasCash, roasContract,
+        cashPerCall, revPerLead, costPerClose,
+      };
+    }
+
+    function render() {
+      const r = calculate();
+
+      document.getElementById('roasCash').textContent = fmtROAS(r.roasCash);
+      document.getElementById('cashPerCall').textContent = fmtMoney(r.cashPerCall);
+
+      document.getElementById('totalCash').textContent = fmtMoney(r.totalCash);
+      document.getElementById('totalContract').textContent = fmtMoney(r.totalContract);
+      document.getElementById('roasContract').textContent = fmtROAS(r.roasContract);
+      document.getElementById('revPerLead').textContent = fmtMoney(r.revPerLead);
+      document.getElementById('leadBookRate').textContent = fmtPct(r.leadBookPct);
+      document.getElementById('costPerClose').textContent = fmtMoney(r.costPerClose);
+
+      // Funnel
+      const maxFunnel = Math.max(r.leads, 1);
+      document.getElementById('val-leads').textContent = fmtNum(r.leads);
+      document.getElementById('val-booked').textContent = fmtNum(r.booked);
+      document.getElementById('val-shown').textContent = fmtNum(r.shown);
+      document.getElementById('val-closes').textContent = fmtNum(r.closes);
+
+      document.getElementById('bar-leads').style.width = '100%';
+      document.getElementById('bar-booked').style.width = Math.min(100, (r.booked / maxFunnel) * 100) + '%';
+      document.getElementById('bar-shown').style.width = Math.min(100, (r.shown / maxFunnel) * 100) + '%';
+      document.getElementById('bar-closes').style.width = Math.min(100, (r.closes / maxFunnel) * 100) + '%';
+
+      const pctOfLeads = (n) => r.leads > 0 ? (n / r.leads) * 100 : 0;
+      document.getElementById('rate-booked').textContent = fmtPct(pctOfLeads(r.booked)) + ' of leads';
+      document.getElementById('rate-shown').textContent = fmtPct(pctOfLeads(r.shown)) + ' of leads';
+      document.getElementById('rate-closes').textContent = fmtPct(pctOfLeads(r.closes)) + ' of leads';
+
+      // Update URL silently (without scroll/history push spam)
+      const newURL = buildShareURL();
+      window.history.replaceState(null, '', newURL);
+    }
+
+    // Init
+    loadFromURL();
+    inputGroups.forEach(g => g._sync());
+    render();
+
+    // Share
+    const shareBtn = document.getElementById('shareBtn');
+    const shareBtnText = document.getElementById('shareBtnText');
+    const toast = document.getElementById('toast');
+    let toastTimeout;
+
+    shareBtn.addEventListener('click', async () => {
+      const url = buildShareURL();
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch (e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (_) {}
+        document.body.removeChild(ta);
+      }
+      shareBtn.classList.add('copied');
+      shareBtnText.textContent = 'Copied!';
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        shareBtn.classList.remove('copied');
+        shareBtnText.textContent = 'Share Results';
+        toast.classList.remove('show');
+      }, 1800);
+    });
+  </script>
+</body>
+</html>
